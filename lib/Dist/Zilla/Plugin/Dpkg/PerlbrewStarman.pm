@@ -6,6 +6,9 @@ use Moose::Util::TypeConstraints;
 extends 'Dist::Zilla::Plugin::Dpkg';
 
 enum 'WebServer', [qw(apache nginx all)];
+subtype 'ApacheModule', as 'Str', where { $_ =~ /^[a-z_]+$/ };
+subtype 'ApacheModules', as 'ArrayRef[ApacheModule]', message { 'The value provided for apache_modules does not look like a list of whitespace-separated Apache modules' };
+coerce 'ApacheModules', from 'Str', via { [ split /\s+/ ] };
 
 #ABSTRACT: Generate dpkg files for your perlbrew-backed, starman-based perl app
 
@@ -445,6 +448,19 @@ has 'web_server' => (
     required => 1
 );
 
+=attr apache_modules
+
+Set any additional Apache modules that will need to be enabled.
+
+=cut
+
+has 'apache_modules' => (
+    is => 'ro',
+    isa => 'ApacheModules',
+    required => 0,
+    coerce => 1
+);
+
 around '_generate_file' => sub {
     my $orig = shift;
     my $self = shift;
@@ -464,7 +480,9 @@ around '_generate_file' => sub {
         rm -f /etc/apache2/sites-available/$PACKAGE
         ln /srv/$PACKAGE/config/apache/$PACKAGE.conf /etc/apache2/sites-available/$PACKAGE
 ';
-        $_[2]->{webserver_restart} .= 'a2enmod proxy proxy_http rewrite
+        $_[2]->{webserver_restart} .= 'a2enmod proxy proxy_http rewrite ';
+		$_[2]->{webserver_restart} .= join ' ', @{ $self->apache_modules || [] };
+        $_[2]->{webserver_restart} .= '
         a2ensite $PACKAGE
         mkdir -p /var/log/apache2/$PACKAGE
         if which invoke-rc.d >/dev/null 2>&1; then
