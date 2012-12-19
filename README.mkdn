@@ -4,11 +4,11 @@ Dist::Zilla::Plugin::Dpkg::PerlbrewStarman - Generate dpkg files for your perlbr
 
 # VERSION
 
-version 0.12
+version 0.15
 
 # SYNOPSIS
 
-  #  [Dpkg::PerlbrewStarman]
+    #  [Dpkg::PerlbrewStarman]
 
 # DESCRIPTION
 
@@ -24,7 +24,7 @@ Starman.  It makes the following assumptions:
 - It's installed at /srv/$packagename
 - Logs will be placed in /var/log/$packagename
 - psgi file is in script and is named $packagename.psgi
-- Config is in config/ and can be found by your app with nothing more than it's HOME variable set. (FOO_BAR_HOME)
+- Config is in config/ and can be found by your app with nothing more than it's HOME variable set. (FOO\_BAR\_HOME)
 - Nginx config is in config/nginx/$packagename.conf or Apache config is at config/apache/$packagename.conf
 - Your app can be preloaded
 - Your app only listens on localhost (nginx/apache handles the rest)
@@ -32,21 +32,21 @@ Starman.  It makes the following assumptions:
 
 This module provides defaults for the following attribute:
 
-- conffiles_template_default
-- control_template_default
-- default_template_default
-- init_template_default
-- install_template_default
-- postinst_template_default
-- postrm_template_default
+- conffiles\_template\_default
+- control\_template\_default
+- default\_template\_default
+- init\_template\_default
+- install\_template\_default
+- postinst\_template\_default
+- postrm\_template\_default
 
 # ATTRIBUTES
 
-## starman_port
+## starman\_port
 
 The port to use for starman.
 
-## startup_time
+## startup\_time
 
 The amount of time (in seconds) that the init script will wait on startup. Some
 applications may require more than the default amount of time (30 seconds).
@@ -56,10 +56,14 @@ applications may require more than the default amount of time (30 seconds).
 The UID of the user we're adding for the package. This is helpful for syncing
 UIDs across multiple installations
 
-## web_server
+## web\_server
 
 Set the web server we'll be working with for this package.  Supported values
 are `apache` and `nginx`.
+
+## apache\_modules
+
+Set any additional Apache modules that will need to be enabled.
 
 # AUTHOR
 
