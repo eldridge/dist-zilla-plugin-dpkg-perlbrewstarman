@@ -11,44 +11,54 @@ enum 'WebServer', [qw(apache nginx all)];
 
 =head1 SYNOPSIS
 
-  #  [Dpkg::PerlbrewStarman]
-  
+    #  [Dpkg::PerlbrewStarman]
+    #  web_server   = nginx
+    #  starman_port = 6000
+
 =head1 DESCRIPTION
 
 Dist::Zilla::Plugin::Dpkg::PerlbrewStarman is an extension of
-Dist::Zilla::Plugin::Dpkg. It generates Debian control files that are
-suitable for a perl app that includes it's own Perlbrew and runs under
-Starman.  It makes the following assumptions:
+L<Dist::Zilla::Plugin::Dpkg>. It generates Debian control files that are
+suitable for a perl app that includes it's own Perlbrew and runs under Starman.
+It makes the following assumptions:
 
 =over 4
 
-=item XXX Perlbrew
+=item XXX L<Perlbrew>
 
 =item Runs under L<Starman>
 
 =item Starman is fronted by nginx or apache
 
-=item It runs as a user called $packagename
+=item It runs as a user called $PACKAGE
 
-=item It's installed at /srv/$packagename
+=item It's installed at /srv/$PACKAGE with symlinks from common locations:
 
-=item Logs will be placed in /var/log/$packagename
+=over 4
 
-=item psgi file is in script and is named $packagename.psgi
+=item /etc/$PACKAGE to /srv/$PACKAGE/config 
+
+=item /etc/apache2/sites-available/$PACKAGE to /srv/$PACKAGE/config/apache/$PACKAGE.conf
+
+=item /etc/nginx/sites-available/$PACKAGE to /srv/$PACKAGE/config/nginx/$PACKAGE.conf
+
+=item
+
+=back
+
+=item Logs will be placed in /var/log/$PACKAGE
 
 =item Config is in config/ and can be found by your app with nothing more than it's HOME variable set. (FOO_BAR_HOME)
 
-=item Nginx config is in config/nginx/$packagename.conf or Apache config is at config/apache/$packagename.conf
+=item Nginx config is in config/nginx/$PACKAGE.conf or Apache config is at config/apache/$PACKAGE.conf
 
 =item Your app can be preloaded
 
 =item Your app only listens on localhost (nginx/apache handles the rest)
 
-=item You want 5 workers
-
 =back
 
-This module provides defaults for the following attribute:
+This module provides defaults for the following L<<Dist::Zilla::Plugin::Dpkg> attributes:
 
 =over 4
 
@@ -61,6 +71,9 @@ This module provides defaults for the following attribute:
 =item init_template_default
 
 =item install_template_default
+
+Installs the required directories C<config>, C<lib>, C<root>, C<script>, and C<perlbrew>. May be modified with the 
+attribute C<install_template>.
 
 =item postinst_template_default
 
@@ -105,12 +118,12 @@ APPDIR="/srv/$APP"
 APPLIB="/srv/$APP/lib"
 APPUSER={$package_name}
 
-PSGIAPP="script/$APP.psgi"
+PSGIAPP="{$psgi_script}"
 PIDFILE="/var/run/$APP.pid"
 
 PERLBREW_PATH="$APPDIR/perlbrew/bin"
 
-DAEMON_ARGS="-Ilib $PSGIAPP --daemonize --user $APPUSER --preload-app --workers 5 --pid $PIDFILE --port {$starman_port} --host 127.0.0.1 --error-log /var/log/$APP/error.log"
+DAEMON_ARGS="-Ilib $PSGIAPP --daemonize --user $APPUSER --preload-app --workers {$starman_workers} --pid $PIDFILE --port {$starman_port} --host 127.0.0.1 --error-log /var/log/$APP/error.log"
 '
 );
 
@@ -396,7 +409,7 @@ build:
 
 =attr starman_port
 
-The port to use for starman.
+The port to use for starman (required).
 
 =cut
 
@@ -404,6 +417,33 @@ has 'starman_port' => (
     is => 'ro',
     isa => 'Str',
     required => 1
+);
+
+=attr starman_workers
+
+The number of starman workers (5 by default).
+
+=cut
+
+has 'starman_workers' => (
+    is => 'ro',
+    isa => 'Str',
+    default => 5
+);
+
+=attr psgi_script
+
+Location of the psgi script started by starman. By default this is
+C<script/$PACKAGE.psgi>.
+
+=cut
+
+has 'psgi_script' => (
+    is => 'ro',
+    isa => 'Str',
+    default => sub {
+        'script/'.$_[0]->package_name.'.psgi';
+    }
 );
 
 =attr startup_time
@@ -434,8 +474,8 @@ has 'uid' => (
 
 =attr web_server
 
-Set the web server we'll be working with for this package.  Supported values
-are C<apache> and C<nginx>.
+Set the web server we'll be working with for this package (required).
+Supported values are C<apache>, C<nginx>, and C<all> for both..
 
 =cut
 
@@ -454,6 +494,7 @@ around '_generate_file' => sub {
     }
     
     $_[2]->{starman_port} = $self->starman_port;
+    $_[2]->{starman_workers} = $self->starman_workers;
     $_[2]->{startup_time} = $self->startup_time;
 
     $_[2]->{webserver_config_link} = '';
@@ -462,7 +503,7 @@ around '_generate_file' => sub {
     if(($self->web_server eq 'apache') || ($self->web_server eq 'all')) {
         $_[2]->{webserver_config_link} .= '# Symlink to the apache config for the environment we`re in
         rm -f /etc/apache2/sites-available/$PACKAGE
-        ln /srv/$PACKAGE/config/apache/$PACKAGE.conf /etc/apache2/sites-available/$PACKAGE
+        ln -s /srv/$PACKAGE/config/apache/$PACKAGE.conf /etc/apache2/sites-available/$PACKAGE
 ';
         $_[2]->{webserver_restart} .= 'a2enmod proxy proxy_http rewrite
         a2ensite $PACKAGE
@@ -488,5 +529,12 @@ around '_generate_file' => sub {
     }
     $self->$orig(@_);
 };
+
+=head1 SEE ALSO
+
+* L<Dist::Zilla::Plugin::ChangelogFromGit::Debian> 
+* L<Dist::Zilla::Deb>
+
+=cut
 
 1;
