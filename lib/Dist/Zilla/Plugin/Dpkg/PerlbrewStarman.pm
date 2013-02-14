@@ -58,11 +58,9 @@ It makes the following assumptions:
 
 =item Your app only listens on localhost (nginx/apache handles the rest)
 
-=item You want 5 workers
-
 =back
 
-This module provides defaults for the following attribute:
+This module provides defaults for the following L<<Dist::Zilla::Plugin::Dpkg> attributes:
 
 =over 4
 
@@ -124,7 +122,7 @@ PIDFILE="/var/run/$APP.pid"
 
 PERLBREW_PATH="$APPDIR/perlbrew/bin"
 
-DAEMON_ARGS="-Ilib $PSGIAPP --daemonize --user $APPUSER --preload-app --workers 5 --pid $PIDFILE --port {$starman_port} --host 127.0.0.1 --error-log /var/log/$APP/error.log"
+DAEMON_ARGS="-Ilib $PSGIAPP --daemonize --user $APPUSER --preload-app --workers {$starman_workers} --pid $PIDFILE --port {$starman_port} --host 127.0.0.1 --error-log /var/log/$APP/error.log"
 '
 );
 
@@ -420,6 +418,18 @@ has 'starman_port' => (
     required => 1
 );
 
+=attr starman_workers
+
+The number of starman workers (5 by default).
+
+=cut
+
+has 'starman_workers' => (
+    is => 'ro',
+    isa => 'Str',
+    default => 5
+);
+
 =attr startup_time
 
 The amount of time (in seconds) that the init script will wait on startup. Some
@@ -468,6 +478,7 @@ around '_generate_file' => sub {
     }
     
     $_[2]->{starman_port} = $self->starman_port;
+    $_[2]->{starman_workers} = $self->starman_workers;
     $_[2]->{startup_time} = $self->startup_time;
 
     $_[2]->{webserver_config_link} = '';
