@@ -11,9 +11,9 @@ enum 'WebServer', [qw(apache nginx all)];
 
 =head1 SYNOPSIS
 
-    [Dpkg::PerlbrewStarman]
-    web_server   = nginx
-    starman_port = 6000
+    #  [Dpkg::PerlbrewStarman]
+    #  web_server   = nginx
+    #  starman_port = 6000
 
 =head1 DESCRIPTION
 
@@ -48,8 +48,6 @@ It makes the following assumptions:
 
 =item Logs will be placed in /var/log/$PACKAGE
 
-=item psgi file is in script and is named $PACKAGE.psgi
-
 =item Config is in config/ and can be found by your app with nothing more than it's HOME variable set. (FOO_BAR_HOME)
 
 =item Nginx config is in config/nginx/$PACKAGE.conf or Apache config is at config/apache/$PACKAGE.conf
@@ -73,6 +71,9 @@ This module provides defaults for the following L<<Dist::Zilla::Plugin::Dpkg> at
 =item init_template_default
 
 =item install_template_default
+
+Installs the required directories C<config>, C<lib>, C<root>, C<script>, and C<perlbrew>. May be modified with the 
+attribute C<install_template>.
 
 =item postinst_template_default
 
@@ -117,7 +118,7 @@ APPDIR="/srv/$APP"
 APPLIB="/srv/$APP/lib"
 APPUSER={$package_name}
 
-PSGIAPP="script/$APP.psgi"
+PSGIAPP="{$psgi_script}"
 PIDFILE="/var/run/$APP.pid"
 
 PERLBREW_PATH="$APPDIR/perlbrew/bin"
@@ -430,6 +431,21 @@ has 'starman_workers' => (
     default => 5
 );
 
+=attr psgi_script
+
+Location of the psgi script started by starman. By default this is
+C<script/$PACKAGE.psgi>.
+
+=cut
+
+has 'psgi_script' => (
+    is => 'ro',
+    isa => 'Str',
+    default => sub {
+        'script/'.$_[0]->package_name.'.psgi';
+    }
+);
+
 =attr startup_time
 
 The amount of time (in seconds) that the init script will wait on startup. Some
@@ -513,5 +529,12 @@ around '_generate_file' => sub {
     }
     $self->$orig(@_);
 };
+
+=head1 SEE ALSO
+
+* L<Dist::Zilla::Plugin::ChangelogFromGit::Debian> 
+* L<Dist::Zilla::Deb>
+
+=cut
 
 1;
