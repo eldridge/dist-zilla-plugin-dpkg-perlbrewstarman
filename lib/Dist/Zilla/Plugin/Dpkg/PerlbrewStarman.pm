@@ -612,6 +612,7 @@ around '_generate_file' => sub {
     $_[2]->{webserver_restart} = '';
 
     if(($self->web_server eq 'apache') || ($self->web_server eq 'all')) {
+        $_[2]->{package_binary_depends} .= ', apache2';
         $_[2]->{webserver_config_link} .= '# Symlink to the apache config for this environment
         rm -f /etc/apache2/sites-available/$PACKAGE
         ln -s /srv/$PACKAGE/config/apache/$PACKAGE.conf /etc/apache2/sites-available/$PACKAGE
@@ -629,6 +630,7 @@ around '_generate_file' => sub {
 ';
     }
     if(($self->web_server eq 'nginx') || ($self->web_server eq 'all')) {
+        $_[2]->{package_binary_depends} .= ', nginx';
         $_[2]->{webserver_config_link} .= '# Symlink to the nginx config for this environment
         rm -f /etc/nginx/sites-available/$PACKAGE
         ln -s /srv/$PACKAGE/config/nginx/$PACKAGE.conf /etc/nginx/sites-available/$PACKAGE
