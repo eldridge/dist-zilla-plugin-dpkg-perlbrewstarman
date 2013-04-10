@@ -14,75 +14,170 @@ coerce 'ApacheModules', from 'Str', via { [ split /\s+/ ] };
 
 =head1 SYNOPSIS
 
-    #  [Dpkg::PerlbrewStarman]
-    #  web_server   = nginx
-    #  starman_port = 6000
+A minimal directory structure for application foo:
+
+    lib/
+    root/
+    script/foo.psgi
+    config/nginx/foo.conf
+    perlbrew/bin/starman
+
+A minimal configuration:
+
+    [Dpkg::PerlbrewStarman]
+    web_server      = nginx
+    starman_port    = 6000
+
+A configuration showing optional attributes and their defaults:
+
+    [Dpkg::PerlbrewStarman]
+    web_server      = nginx
+    starman_port    = 6000
+    psgi_script     = script/foo.psgi
+    starman_workers = 5
+    startup_time    = 30
+
+A configuration showing optional attributes that have no defaults:
+
+    [Dpkg::PerlbrewStarman]
+    web_server      = apache
+    starman_port    = 6000
+    apache_modules  = ldap ssl
+    uid             = 782
 
 =head1 DESCRIPTION
 
-Dist::Zilla::Plugin::Dpkg::PerlbrewStarman is an extension of
-L<Dist::Zilla::Plugin::Dpkg>. It generates Debian control files that are
-suitable for a perl app that includes it's own Perlbrew and runs under Starman.
-It makes the following assumptions:
+This L<Dist::Zilla> plugin generates Debian control files that are
+suitable for packaging a self-contained Plack application utilizing the
+Starman preforking PSGI HTTP server.  Key features include supporting an
+independent perl environment and the generation and installation of init
+scripts to manage the service.
+
+Dist::Zilla::Plugin::Dpkg::PerlbrewStarman is an implementation of
+L<Dist::Zilla::Plugin::Dpkg>, which itself is an abstract base class
+more than anything.  It provides the basic framework by which this
+Dist::Zilla plugin builds the Debian control files.  If the desired
+functionality cannot be achieved by PerlbrewStarman, check there for
+other control templates that may be overridden.
+
+Dist::Zilla::Plugin::Dpkg::PerlbrewStarman provides defaults for the
+following L<Dist::Zilla::Plugin::Dpkg> stubs:
 
 =over 4
 
-=item XXX L<Perlbrew>
+=item * conffiles_template_default
 
-=item Runs under L<Starman>
+=item * control_template_default
 
-=item Starman is fronted by nginx or apache
+=item * default_template_default
 
-=item It runs as a user called $PACKAGE
+=item * init_template_default
 
-=item It's installed at /srv/$PACKAGE with symlinks from common locations:
+=item * install_template_default
+
+=item * postinst_template_default
+
+=item * postrm_template_default
+
+=back
+
+PerlbrewStarman is intended to be used to deploy applications that meet
+the following requirements:
 
 =over 4
 
-=item /etc/$PACKAGE to /srv/$PACKAGE/config 
+=item * L<perlbrew> -- others have reported using PerlbrewStarman under other systems (e.g., L<Carton>)
 
-=item /etc/apache2/sites-available/$PACKAGE to /srv/$PACKAGE/config/apache/$PACKAGE.conf
+=item * Plack/PSGI using the L<Starman> preforking HTTP server listening on localhost
 
-=item /etc/nginx/sites-available/$PACKAGE to /srv/$PACKAGE/config/nginx/$PACKAGE.conf
+=item * Apache and/or nginx are utilized as front-end HTTP proxies
 
-=item
+=item * Application may be preloaded (using Starman's --preload-app)
 
-=back
-
-=item Logs will be placed in /var/log/$PACKAGE
-
-=item Config is in config/ and can be found by your app with nothing more than it's HOME variable set. (FOO_BAR_HOME)
-
-=item Nginx config is in config/nginx/$PACKAGE.conf or Apache config is at config/apache/$PACKAGE.conf
-
-=item Your app can be preloaded
-
-=item Your app only listens on localhost (nginx/apache handles the rest)
+=item * Application does not require root privileges
 
 =back
 
-This module provides defaults for the following L<<Dist::Zilla::Plugin::Dpkg> attributes:
+=head2 Directory structure
+
+The package is installed under C</srv/$PACKAGE>.  Though Debian policy
+generally forbids packages from installing into /srv, PerlbrewStarman
+was written for third-party distribution, not for inclusion into Debian.
+This may change.
+
+By default, your application must conform to the following directory
+structure:
 
 =over 4
 
-=item conffiles_template_default
+=item * perl environment in C<perlbrew>
 
-=item control_template_default
+=item * application configuration in C<config>
 
-=item default_template_default
+=item * Apache and/or nginx configuration in C<config/apache/$PACKAGE.conf> and/or C<config/nginx/$PACKAGE.conf>
 
-=item init_template_default
+=item * PSGI and other application scripts in C<script>
 
-=item install_template_default
+=item * application libraries in C<lib>
 
-Installs the required directories C<config>, C<lib>, C<root>, C<script>, and C<perlbrew>. May be modified with the 
-attribute C<install_template>.
-
-=item postinst_template_default
-
-=item postrm_template_default
+=item * application templates in C<root>
 
 =back
+
+Only files located in these directories will be installed.  Additional
+files may be added to the is list by specifying a path to an alternative
+install control file using C<install_template>.  The default install
+template looks like this:
+
+    config/* srv/{$package_name}/config
+    lib/* srv/{$package_name}/lib
+    root/* srv/{$package_name}/root
+    script/* srv/{$package_name}/script
+    perlbrew/* srv/{$package_name}/perlbrew
+
+The package name is substituted for {$package_name} by Text::Template
+via L<Dist::Zilla::Plugin::Dpkg>.
+
+Paths may also be removed, but note that the only path in the default
+directory structure that is not utilized elsewhere by PerlbrewStarman
+is C<root/*>.
+
+=head2 Other paths
+
+PerlbrewStarman creates a number of files under C</etc> in order to
+integrate with init as well as the front-end HTTP proxy.  The directory
+C</var/log/$PACKAGE> and the link C</etc/$PACKAGE> are created as
+normalized locations for log files and app configuration, respectively.
+These paths should be intuitively familiar for most UNIX administrators.
+
+Following is a complete list of files and symlinks created:
+
+=over 4
+
+=item * /etc/init.d/$PACKAGE
+
+=item * /etc/default/$PACKAGE
+
+=item * /var/log/$PACKAGE
+
+=item * /etc/apache2/sites-available/$PACKAGE => /srv/$PACKAGE/config/apache/$PACKAGE.conf
+
+=item * /etc/nginx/sites-available/$PACKAGE => /srv/$PACKAGE/config/nginx/$PACKAGE.conf
+
+=item * /etc/$PACKAGE => /srv/$PACKAGE/config
+
+=back
+
+=head2 Environment
+
+By default, C</srv/$PACKAGE/perlbrew/bin> is prepended to the C<PATH> by
+way of the C<PERLBREW_PATH> variable in C</etc/default/$PACKAGE>.  The
+C<starman> binary must be present in the path, else the service will
+fail to start.
+
+The application runs as user $PACKAGE by way of the --user argument to
+L<Starman>.  Starman flags are specified by the C<DAEMON_ARGS> variable
+in C</etc/default/$PACKAGE>.
 
 =cut
 
@@ -504,11 +599,11 @@ has 'apache_modules' => (
 around '_generate_file' => sub {
     my $orig = shift;
     my $self = shift;
-    
+
     if($self->has_uid) {
       $_[2]->{uid} = '--uid '.$self->uid;
     }
-    
+
     $_[2]->{starman_port} = $self->starman_port;
     $_[2]->{starman_workers} = $self->starman_workers;
     $_[2]->{startup_time} = $self->startup_time;
@@ -517,7 +612,7 @@ around '_generate_file' => sub {
     $_[2]->{webserver_restart} = '';
 
     if(($self->web_server eq 'apache') || ($self->web_server eq 'all')) {
-        $_[2]->{webserver_config_link} .= '# Symlink to the apache config for the environment we`re in
+        $_[2]->{webserver_config_link} .= '# Symlink to the apache config for this environment
         rm -f /etc/apache2/sites-available/$PACKAGE
         ln -s /srv/$PACKAGE/config/apache/$PACKAGE.conf /etc/apache2/sites-available/$PACKAGE
 ';
@@ -534,7 +629,7 @@ around '_generate_file' => sub {
 ';
     }
     if(($self->web_server eq 'nginx') || ($self->web_server eq 'all')) {
-        $_[2]->{webserver_config_link} .= '# Symlink to the nginx config for the environment we`re in
+        $_[2]->{webserver_config_link} .= '# Symlink to the nginx config for this environment
         rm -f /etc/nginx/sites-available/$PACKAGE
         ln -s /srv/$PACKAGE/config/nginx/$PACKAGE.conf /etc/nginx/sites-available/$PACKAGE
 ';
@@ -550,7 +645,7 @@ around '_generate_file' => sub {
 
 =head1 SEE ALSO
 
-* L<Dist::Zilla::Plugin::ChangelogFromGit::Debian> 
+* L<Dist::Zilla::Plugin::ChangelogFromGit::Debian>
 * L<Dist::Zilla::Deb>
 
 =cut
