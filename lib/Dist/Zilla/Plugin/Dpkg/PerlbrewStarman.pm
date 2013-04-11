@@ -599,27 +599,27 @@ has 'apache_modules' => (
 around '_generate_file' => sub {
     my $orig = shift;
     my $self = shift;
+	my $file = shift;
+	my $required = shift;
+	my $vars = shift;
 
     if($self->has_uid) {
-      $_[2]->{uid} = '--uid '.$self->uid;
+      $vars->{uid} = '--uid '.$self->uid;
     }
 
-    $_[2]->{starman_port} = $self->starman_port;
-    $_[2]->{starman_workers} = $self->starman_workers;
-    $_[2]->{startup_time} = $self->startup_time;
-
-    $_[2]->{webserver_config_link} = '';
-    $_[2]->{webserver_restart} = '';
+    $vars->{starman_port} = $self->starman_port;
+    $vars->{starman_workers} = $self->starman_workers;
+    $vars->{startup_time} = $self->startup_time;
 
     if(($self->web_server eq 'apache') || ($self->web_server eq 'all')) {
-        $_[2]->{package_binary_depends} .= ', apache2';
-        $_[2]->{webserver_config_link} .= '# Symlink to the apache config for this environment
+        $vars->{package_binary_depends} .= ', apache2';
+        $vars->{webserver_config_link} .= '# Symlink to the apache config for this environment
         rm -f /etc/apache2/sites-available/$PACKAGE
         ln -s /srv/$PACKAGE/config/apache/$PACKAGE.conf /etc/apache2/sites-available/$PACKAGE
 ';
-        $_[2]->{webserver_restart} .= 'a2enmod proxy proxy_http rewrite ';
-		$_[2]->{webserver_restart} .= join ' ', @{ $self->apache_modules || [] };
-        $_[2]->{webserver_restart} .= '
+        $vars->{webserver_restart} .= 'a2enmod proxy proxy_http rewrite ';
+		$vars->{webserver_restart} .= join ' ', @{ $self->apache_modules || [] };
+        $vars->{webserver_restart} .= '
         a2ensite $PACKAGE
         mkdir -p /var/log/apache2/$PACKAGE
         if which invoke-rc.d >/dev/null 2>&1; then
@@ -630,19 +630,19 @@ around '_generate_file' => sub {
 ';
     }
     if(($self->web_server eq 'nginx') || ($self->web_server eq 'all')) {
-        $_[2]->{package_binary_depends} .= ', nginx';
-        $_[2]->{webserver_config_link} .= '# Symlink to the nginx config for this environment
+        $vars->{package_binary_depends} .= ', nginx';
+        $vars->{webserver_config_link} .= '# Symlink to the nginx config for this environment
         rm -f /etc/nginx/sites-available/$PACKAGE
         ln -s /srv/$PACKAGE/config/nginx/$PACKAGE.conf /etc/nginx/sites-available/$PACKAGE
 ';
-        $_[2]->{webserver_restart} .= 'if which invoke-rc.d >/dev/null 2>&1; then
+        $vars->{webserver_restart} .= 'if which invoke-rc.d >/dev/null 2>&1; then
             invoke-rc.d nginx restart
         else
             /etc/init.d/nginx restart
         fi
 ';
     }
-    $self->$orig(@_);
+    $self->$orig($file, $required, $vars);
 };
 
 =head1 SEE ALSO
