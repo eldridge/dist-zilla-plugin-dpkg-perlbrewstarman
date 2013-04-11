@@ -2,7 +2,18 @@ Revision history for Dist-Zilla-Plugin-Dpkg-PerlbrewStarman
 
 {{$NEXT}}
 
+0.16 Apr 10 2013
+
+0.16 Apr 10 2013
+  - Changed hard links to symbolic links (Jakob Voss)
+  - Added new configuration attributes (Jakob Voss)
+     - starman_workers - number of Starman workers (default: 5)
+     - psgi_script - location of the PSGI (default: script/$PACKAGE.psgi)
+  - Add the selection of web server to the list of package dependencies
+  - Documentation overhaul
+
 0.15 Dec 19 2012
+  - Added support for specifying additional Apache modules to enable
 
 0.14 Aug 23 2012
   - Fix another instance of rm being called without the -f flag.  This prevents
