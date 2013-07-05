@@ -23,7 +23,7 @@ case "$1" in
     configure)
 
         # Symlink /etc/$PACKAGE to our package`s config directory
-        if [ ! -e /etc/$PACKAGE ]; then
+        if [ ! -e /etc/$PACKAGE -a ! -h /etc/$PACKAGE ]; then
             ln -s /srv/$PACKAGE/config /etc/$PACKAGE
         fi
 
