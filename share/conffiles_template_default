@@ -1,0 +1,2 @@
+/etc/default/{$package_name}
+/etc/init.d/{$package_name}

@@ -7,8 +7,15 @@ extends 'Dist::Zilla::Plugin::Dpkg';
 
 enum 'WebServer', [qw(apache nginx all)];
 subtype 'ApacheModule', as 'Str', where { $_ =~ /^[a-z_]+$/ };
-subtype 'ApacheModules', as 'ArrayRef[ApacheModule]', message { 'The value provided for apache_modules does not look like a list of whitespace-separated Apache modules' };
+subtype 'ApacheModules', as 'ArrayRef[ApacheModule]',
+    message { 'The value provided for apache_modules does not look like a list of whitespace-separated Apache modules' };
 coerce 'ApacheModules', from 'Str', via { [ split /\s+/ ] };
+
+use File::ShareDir qw(dist_file);
+
+sub share_file {
+    do { local (@ARGV,$/) = dist_file('Dist-Zilla-Plugin-Dpkg-PerlbrewStarman',shift); <> }
+}
 
 #ABSTRACT: Generate dpkg files for your perlbrew-backed, starman-based perl app
 
@@ -60,8 +67,9 @@ Dist::Zilla plugin builds the Debian control files.  If the desired
 functionality cannot be achieved by PerlbrewStarman, check there for
 other control templates that may be overridden.
 
-Dist::Zilla::Plugin::Dpkg::PerlbrewStarman provides defaults for the
-following L<Dist::Zilla::Plugin::Dpkg> stubs:
+Dist::Zilla::Plugin::Dpkg::PerlbrewStarman provides defaults for the following
+L<Dist::Zilla::Plugin::Dpkg> stubs. The defaults are located in the share
+directory of this distribution:
 
 =over 4
 
@@ -182,327 +190,35 @@ in C</etc/default/$PACKAGE>.
 =cut
 
 has '+conffiles_template_default' => (
-    default => '/etc/default/{$package_name}
-/etc/init.d/{$package_name}
-'
+    default => sub { share_file('conffiles_template_default') }
 );
 
 has '+control_template_default' => (
-    default => 'Source: {$package_name}
-Section: {$package_section}
-Priority: {$package_priority}
-Maintainer: {$author}
-Build-Depends: {$package_depends}
-Standards-Version: 3.8.4
-
-Package: {$package_name}
-Architecture: {$architecture}
-Depends: adduser {$package_binary_depends}
-Description: {$package_description}
-'
+    default => sub { share_file('control_template_default') }
 );
 
 has '+default_template_default' => (
-    default => '# Defaults for {$package_name} initscript
-# sourced by /etc/init.d/{$package_name}
-# installed at /etc/default/{$package_name} by the maintainer scripts
-
-#
-# This is a POSIX shell fragment
-#
-
-APP="{$package_name}"
-APPDIR="/srv/$APP"
-APPLIB="/srv/$APP/lib"
-APPUSER={$package_name}
-
-PSGIAPP="{$psgi_script}"
-PIDFILE="/var/run/$APP.pid"
-
-PERLBREW_PATH="$APPDIR/perlbrew/bin"
-
-DAEMON_ARGS="-Ilib $PSGIAPP --daemonize --user $APPUSER --preload-app --workers {$starman_workers} --pid $PIDFILE --port {$starman_port} --host 127.0.0.1 --error-log /var/log/$APP/error.log"
-'
+    default => sub { share_file('default_template_default') }
 );
 
 has '+init_template_default' => (
-    default => '#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          {$package_name}
-# Required-Start:    $network $local_fs $remote_fs
-# Required-Stop:     $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: {$name}
-# Description:       {$name}
-#                    <...>
-#                    <...>
-### END INIT INFO
-
-# Author: {$author}
-
-DESC={$package_name}
-NAME={$package_name}
-SCRIPTNAME=/etc/init.d/$NAME
-
-# Read configuration variable file if it is present
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-
-PATH=$PERLBREW_PATH:$PATH
-DAEMON=`which starman`
-
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
-
-check_running() \{
-    [ -s $PIDFILE ] && kill -0 $(cat $PIDFILE) >/dev/null 2>&1
-\}
-
-check_compile() \{
-  if ( cd $APPLIB ; find -type f -name \'*.pm\' | xargs perl -c ) ; then
-    return 1
-  else
-    return 0
-  fi
-\}
-
-_start() \{
-
-  export {$package_shell_name}_HOME=$APPDIR
-  /sbin/start-stop-daemon --start --pidfile $PIDFILE --chdir $APPDIR --exec $DAEMON -- \
-    $DAEMON_ARGS \
-    || return 2
-
-  echo ""
-  echo "Waiting for $APP to start..."
-
-  for i in `seq {$startup_time}` ; do
-    sleep 1
-    if check_running ; then
-      echo "$APP is now starting up"
-      return 0
-    fi
-  done
-
-  return 1
-\}
-
-start() \{
-    log_daemon_msg "Starting $APP"
-    echo ""
-
-    if check_running; then
-        log_progress_msg "already running"
-        log_end_msg 0
-        exit 0
-    fi
-
-    rm -f $PIDFILE 2>/dev/null
-
-    _start
-    log_end_msg $?
-    return $?
-\}
-
-stop() \{
-    log_daemon_msg "Stopping $APP"
-    echo ""
-
-    /sbin/start-stop-daemon --stop --oknodo --pidfile $PIDFILE
-    sleep 3
-    log_end_msg $?
-    return $?
-\}
-
-restart() \{
-    log_daemon_msg "Restarting $APP"
-    echo ""
-
-    if check_compile ; then
-        log_failure_msg "Error detected; not restarting."
-        log_end_msg 1
-        exit 1
-    fi
-
-    /sbin/start-stop-daemon --stop --oknodo --pidfile $PIDFILE
-    _start
-    log_end_msg $?
-    return $?
-\}
-
-
-# See how we were called.
-case "$1" in
-    start)
-        start
-    ;;
-    stop)
-        stop
-    ;;
-    restart|force-reload)
-        restart
-    ;;
-    *)
-        echo $"Usage: $0 \{start|stop|restart\}"
-        exit 1
-esac
-exit $?
-'
+    default => sub { share_file('init_template_default') }
 );
 
 has '+install_template_default' => (
-    default => 'config/* srv/{$package_name}/config
-lib/* srv/{$package_name}/lib
-root/* srv/{$package_name}/root
-script/* srv/{$package_name}/script
-perlbrew/* srv/{$package_name}/perlbrew
-'
+    default => sub { share_file('install_template_default') }
 );
 
 has '+postinst_template_default' => (
-    default => '#!/bin/sh
-# postinst script for {$package_name}
-#
-# see: dh_installdeb(1)
-
-set -e
-
-# summary of how this script can be called:
-#        * <postinst> `configure` <most-recently-configured-version>
-#        * <old-postinst> `abort-upgrade` <new version>
-#        * <conflictor`s-postinst> `abort-remove` `in-favour` <package>
-#          <new-version>
-#        * <postinst> `abort-remove`
-#        * <deconfigured`s-postinst> `abort-deconfigure` `in-favour`
-#          <failed-install-package> <version> `removing`
-#          <conflicting-package> <version>
-# for details, see http://www.debian.org/doc/debian-policy/ or
-# the debian-policy package
-
-PACKAGE={$package_name}
-
-case "$1" in
-    configure)
-
-        # Symlink /etc/$PACKAGE to our package`s config directory
-        if [ ! -e /etc/$PACKAGE ]; then
-            ln -s /srv/$PACKAGE/config /etc/$PACKAGE
-        fi
-
-        {$webserver_config_link}
-
-        # Create user if it doesn`t exist.
-        if ! id $PACKAGE > /dev/null 2>&1 ; then
-            adduser --system {$uid} --home /srv/$PACKAGE --no-create-home \
-                --ingroup nogroup --disabled-password --shell /bin/bash \
-                $PACKAGE
-        fi
-
-        # Setup the perlbrew
-        echo "export PATH=~/perlbrew/bin:$PATH" > /srv/$PACKAGE/.profile
-
-        # Make sure this user owns the directory
-        chown -R $PACKAGE:adm /srv/$PACKAGE
-
-        # Make the log directory
-        if [ ! -e /var/log/$PACKAGE ]; then
-            mkdir /var/log/$PACKAGE
-            chown -R $PACKAGE:adm /var/log/$PACKAGE
-        fi
-
-        {$webserver_restart}
-    ;;
-
-    abort-upgrade|abort-remove|abort-deconfigure)
-    ;;
-
-    *)
-        echo "postinst called with unknown argument: $1" >&2
-        exit 1
-    ;;
-esac
-
-# dh_installdeb will replace this with shell code automatically
-# generated by other debhelper scripts.
-
-#DEBHELPER#
-
-exit 0
-'
+    default => sub { share_file('postinst_template_default') }
 );
 
 has '+postrm_template_default' => (
-    default => '#!/bin/sh
-
-set -e
-
-PACKAGE={$package_name}
-
-case "$1" in
-    purge)
-        # Remove the config symlink
-        rm -f /etc/$PACKAGE
-
-        # Remove the nginx config
-        if [ -h /etc/nginx/sites-available/$PACKAGE ]; then
-            rm -f /etc/nginx/sites-available/$PACKAGE
-        fi
-
-        # Remove the apache config
-        if [ -e /etc/apache2/sites-available/$PACKAGE ]; then
-            rm -f /etc/apache2/sites-enabled/$PACKAGE
-            rm -f /etc/apache2/sites-available/$PACKAGE
-        fi
-
-        # Remove the user
-        userdel $PACKAGE || true
-
-        # Remove logs
-        rm -rf /var/log/$PACKAGE
-        rm -rf /var/log/apache2/$PACKAGE
-
-        # Remove the home directory
-        rm -rf /srv/$PACKAGE
-    ;;
-
-    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
-    ;;
-
-    *)
-        echo "postrm called with unknown argument: $1" >&2
-        exit 1
-    ;;
-esac
-
-#DEBHELPER#
-
-exit 0
-'
+    default => sub { share_file('postrm_template_default') }
 );
 
 has '+rules_template_default' => (
-    default => '#!/usr/bin/make -f
-# -*- makefile -*-
-# Sample debian/rules that uses debhelper.
-# This file was originally written by Joey Hess and Craig Small.
-# As a special exception, when this file is copied by dh-make into a
-# dh-make output file, you may use that output file without restriction.
-# This special exception was added by Craig Small in version 0.37 of dh-make.
-
-# Uncomment this to turn on verbose mode.
-export DH_VERBOSE=1
-
-build:
-	dh_testdir
-	dh_auto_build
-
-%:
-	dh $@ --without perl --without auto_configure
-'
+    default => sub { share_file('rules_template_default') }
 );
 
 =attr starman_port
@@ -599,12 +315,12 @@ has 'apache_modules' => (
 around '_generate_file' => sub {
     my $orig = shift;
     my $self = shift;
-	my $file = shift;
-	my $required = shift;
-	my $vars = shift;
+    my $file = shift;
+    my $required = shift;
+    my $vars = shift;
 
     if($self->has_uid) {
-      $vars->{uid} = '--uid '.$self->uid;
+        $vars->{uid} = '--uid '.$self->uid;
     }
 
     $vars->{starman_port} = $self->starman_port;
@@ -618,7 +334,7 @@ around '_generate_file' => sub {
         ln -s /srv/$PACKAGE/config/apache/$PACKAGE.conf /etc/apache2/sites-available/$PACKAGE
 ';
         $vars->{webserver_restart} .= 'a2enmod proxy proxy_http rewrite ';
-		$vars->{webserver_restart} .= join ' ', @{ $self->apache_modules || [] };
+        $vars->{webserver_restart} .= join ' ', @{ $self->apache_modules || [] };
         $vars->{webserver_restart} .= '
         a2ensite $PACKAGE
         mkdir -p /var/log/apache2/$PACKAGE
