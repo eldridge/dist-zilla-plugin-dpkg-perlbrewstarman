@@ -54,8 +54,9 @@ Dist::Zilla plugin builds the Debian control files.  If the desired
 functionality cannot be achieved by PerlbrewStarman, check there for
 other control templates that may be overridden.
 
-Dist::Zilla::Plugin::Dpkg::PerlbrewStarman provides defaults for the
-following [Dist::Zilla::Plugin::Dpkg](http://search.cpan.org/perldoc?Dist::Zilla::Plugin::Dpkg) stubs:
+Dist::Zilla::Plugin::Dpkg::PerlbrewStarman provides defaults for the following
+[Dist::Zilla::Plugin::Dpkg](http://search.cpan.org/perldoc?Dist::Zilla::Plugin::Dpkg) stubs. The defaults are located in the share
+directory of this distribution:
 
 - conffiles\_template\_default
 - control\_template\_default

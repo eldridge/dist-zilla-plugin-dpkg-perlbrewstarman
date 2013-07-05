@@ -1,0 +1,5 @@
+config/* srv/{$package_name}/config
+lib/* srv/{$package_name}/lib
+root/* srv/{$package_name}/root
+script/* srv/{$package_name}/script
+perlbrew/* srv/{$package_name}/perlbrew
